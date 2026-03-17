@@ -1,0 +1,24 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: agent-ai-spring-boot
+build:
+  artifacts:
+    - image: agent-ai-spring-boot
+      jib: {}
+manifests:
+  rawYaml:
+    - k8s/postgres-secret.yaml
+    - k8s/postgres-pvc.yaml
+    - k8s/postgres-deployment.yaml
+    - k8s/postgres-service.yaml
+    - k8s/app-secret.yaml
+    - k8s/app-deployment.yaml
+    - k8s/app-service.yaml
+deploy:
+  kubectl: {}
+portForward:
+  - resourceType: service
+    resourceName: person-api
+    port: 8080
+    localPort: 8080
