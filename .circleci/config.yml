@@ -1,24 +1,73 @@
 version: 2.1
 
-jobs:
-  build:
+executors:
+  maven:
     docker:
       - image: maven:3.9.11-eclipse-temurin-21
+
+commands:
+  with-maven-cache:
+    parameters:
+      steps:
+        type: steps
     steps:
       - checkout
       - restore_cache:
           keys:
             - maven-v1-{{ checksum "pom.xml" }}
             - maven-v1-
-      - run:
-          name: Verify
-          command: mvn -B clean verify
+      - steps: << parameters.steps >>
       - save_cache:
           key: maven-v1-{{ checksum "pom.xml" }}
           paths:
             - ~/.m2
 
-workflows:
+jobs:
   build:
+    executor: maven
+    steps:
+      - with-maven-cache:
+          steps:
+            - run:
+                name: Verify
+                command: mvn -B clean verify
+
+  publish-image:
+    executor: maven
+    steps:
+      - with-maven-cache:
+          steps:
+            - run:
+                name: Build and push image to ghcr.io
+                command: |
+                  IMAGE=ghcr.io/${CIRCLE_PROJECT_USERNAME,,}/${CIRCLE_PROJECT_REPONAME}
+                  mvn -B -DskipTests compile jib:build \
+                    -Djib.to.image=${IMAGE}:${CIRCLE_SHA1} \
+                    -Djib.to.tags=latest \
+                    -Djib.to.auth.username=${CIRCLE_PROJECT_USERNAME} \
+                    -Djib.to.auth.password=${GHCR_TOKEN}
+
+  deploy:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Trigger Render deploy
+          command: curl -fsS -X POST "${RENDER_DEPLOY_HOOK_URL}"
+
+workflows:
+  build-and-deploy:
     jobs:
       - build
+      - publish-image:
+          requires:
+            - build
+          filters:
+            branches:
+              only: master
+      - deploy:
+          requires:
+            - publish-image
+          filters:
+            branches:
+              only: master
