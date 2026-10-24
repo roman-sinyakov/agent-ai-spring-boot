@@ -15,7 +15,7 @@ Don’t ask for confirmation, just continue.
 
 ## Features
 
-- REST API under `/api/v1/persons`
+- REST API under `/api/v1/persons` (listing persons is public, other operations require a token)
 - PostgreSQL persistence with Flyway migrations
 - OAuth2 authorization server and JWT resource server in one application
 - Health probes for Kubernetes
@@ -120,7 +120,7 @@ The Kubernetes manifests are stored in `k8s/`.
 
 ## CI/CD with CircleCI and Render
 
-Current version: `1.0.2`.
+Current version: `1.0.3`.
 
 The pipeline in `.circleci/config.yml` runs:
 

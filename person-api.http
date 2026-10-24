@@ -1,0 +1,11 @@
+### Get OAuth2 access token (client credentials)
+POST {{host}}/oauth2/token
+Authorization: Basic {{clientId}} {{clientSecret}}
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&scope=person.read%20person.write
+
+> {%
+    client.test("Token issued", () => client.assert(response.status === 200, "Status: " + response.status));
+    client.global.set("token", response.body.access_token);
+%}

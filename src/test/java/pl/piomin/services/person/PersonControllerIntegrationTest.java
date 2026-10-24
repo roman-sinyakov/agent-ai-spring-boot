@@ -70,8 +70,23 @@ class PersonControllerIntegrationTest {
     }
 
     @Test
-    void shouldRejectUnauthenticatedRequest() throws Exception {
+    void shouldReturnPersonsWithoutToken() throws Exception {
         mockMvc.perform(get("/api/v1/persons"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedFindById() throws Exception {
+        mockMvc.perform(get("/api/v1/persons/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedCreate() throws Exception {
+        mockMvc.perform(post("/api/v1/persons")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
                 .andExpect(status().isUnauthorized());
     }
 

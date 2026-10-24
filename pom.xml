@@ -13,7 +13,7 @@
 
     <groupId>pl.piomin.services</groupId>
     <artifactId>agent-ai-spring-boot</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <name>agent-ai-spring-boot</name>
     <description>Spring Boot REST API secured with OAuth2 JWT and backed by PostgreSQL</description>
 

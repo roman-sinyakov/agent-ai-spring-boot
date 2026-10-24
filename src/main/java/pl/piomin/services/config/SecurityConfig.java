@@ -47,6 +47,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(AntPathRequestMatcher.antMatcher("/actuator/health/**")).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/persons").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/persons/**").hasAuthority("SCOPE_person.read")
                         .requestMatchers(HttpMethod.POST, "/api/v1/persons/**").hasAuthority("SCOPE_person.write")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/persons/**").hasAuthority("SCOPE_person.write")
