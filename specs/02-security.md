@@ -13,7 +13,7 @@ The API is protected with OAuth2: machine clients obtain a JWT access token with
   - `GET /oauth2/jwks` – public keys for verifying token signatures,
   - `GET /.well-known/oauth-authorization-server` – server metadata.
 - **SEC-2** Exactly one client MUST be registered, supporting only the `client_credentials` grant, authenticated with HTTP Basic (`client_id:client_secret`), and allowed the scopes `person.read` and `person.write`.
-- **SEC-3** The client id, client secret and token issuer (`iss`) MUST be configurable (see [Operations](04-operations-and-delivery.md#configuration)); the secret MUST be stored hashed in memory.
+- **SEC-3** The client id, client secret and token issuer (`iss`) MUST be configurable (see [Operations](05-operations-and-delivery.md#configuration)); the secret MUST be stored hashed in memory.
 - **SEC-4** Access tokens MUST be JWTs signed with RS256. The RSA key pair (2048 bits) is generated at startup and kept in memory only.
   - Consequence (accepted): after a restart previously issued tokens are rejected, and several instances do not accept each other's tokens.
 

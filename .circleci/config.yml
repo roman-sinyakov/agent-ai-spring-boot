@@ -56,6 +56,13 @@ jobs:
             - run:
                 name: Verify
                 command: mvn -B -Drevision=${REVISION} clean verify
+            - store_test_results:
+                path: target/surefire-reports
+                when: always
+            - store_artifacts:
+                path: target/cucumber-report.html
+                when: always
+                destination: cucumber-report.html
 
   publish-image:
     executor: maven

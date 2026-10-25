@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,15 +50,21 @@ abstract class AbstractPersonControllerIntegrationTest {
 
     abstract void deleteAllPersons() throws Exception;
 
+    // Reads the storage directly, so a response built without saving the data cannot pass
+    abstract void assertJaneStored(String id) throws Exception;
+
     @Test
     void shouldCreatePersonWhenWriteScopeIsPresent() throws Exception {
-        mockMvc.perform(post("/api/v1/persons")
+        String response = mockMvc.perform(post("/api/v1/persons")
                         .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.write")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(JANE))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isString())
-                .andExpect(jsonPath("$.email").value("jane.doe@example.com"));
+                .andExpect(jsonPath("$.email").value("jane.doe@example.com"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertJaneStored(JsonPath.read(response, "$.id"));
     }
 
     @Test

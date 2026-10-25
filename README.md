@@ -23,11 +23,12 @@ Don’t ask for confirmation, just continue.
 - Docker Compose for local development
 - Skaffold and Kubernetes manifests for cluster deployment
 - Positive and negative integration tests with JUnit 5, MockMvc and the Firestore emulator (Testcontainers)
+- Cucumber acceptance tests for the acceptance criteria of the API and security specifications
 - CircleCI pipeline: tests, image publishing to GitHub Container Registry and deployment to Render
 
 ## Specifications
 
-The functional and technical requirements are described in [`specs/`](specs/README.md): the person API, security, persistence, and operations and delivery.
+The functional and technical requirements are described in [`specs/`](specs/README.md): the person API, security, persistence (Firestore and PostgreSQL), operations and delivery, and Cucumber acceptance tests.
 
 ## Prerequisites
 
@@ -111,6 +112,23 @@ mvn clean verify
 ```
 
 The same integration tests run against both storages: `FirestorePersonControllerIntegrationTest` starts the Firestore emulator and `PostgresPersonControllerIntegrationTest` starts PostgreSQL (with the Flyway migrations) using Testcontainers, so Docker must be running. If `FIRESTORE_EMULATOR_HOST` or `SPRING_DATASOURCE_URL` is set, the tests use that emulator or database instead (CircleCI runs both as service containers).
+
+### Acceptance tests
+
+The acceptance criteria of `specs/01-person-management.md` and `specs/02-security.md` are Cucumber scenarios in `src/test/resources/features/`. They call the application over real HTTP with real OAuth2 tokens and use the Firestore emulator; `mvn clean verify` runs them with the other tests. Every scenario is tagged with its acceptance criterion and requirements (e.g. `@01-AC-6 @API-11`), so a single one can be run by tag:
+
+```bash
+mvn test -Dtest=AcceptanceTest -Dcucumber.filter.tags="@API-11"
+```
+
+The HTML report is written to `target/cucumber-report.html`; in CircleCI it is stored as a build artifact and the scenarios appear in the *Tests* tab.
+
+### GitHub Actions
+
+Besides CircleCI, which also publishes the image and deploys, two GitHub Actions workflows run:
+
+- `.github/workflows/build.yml` runs `mvn clean verify` on pushes to `master` and on pull requests and uploads the Cucumber report as the `cucumber-report` artifact.
+- `.github/workflows/code-review.yml` reviews every non-draft pull request with the `code-reviewer` agent (`.claude/agents/code-reviewer.md`) and posts the findings as PR comments. It needs the `ANTHROPIC_API_KEY` repository secret.
 
 ## Docker Compose
 
