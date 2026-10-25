@@ -13,23 +13,21 @@
 
     <groupId>pl.piomin.services</groupId>
     <artifactId>agent-ai-spring-boot</artifactId>
-    <version>1.0.3</version>
+    <version>${revision}</version>
     <name>agent-ai-spring-boot</name>
-    <description>Spring Boot REST API secured with OAuth2 JWT and backed by PostgreSQL</description>
+    <description>Spring Boot REST API secured with OAuth2 JWT and backed by Firebase Cloud Firestore or PostgreSQL</description>
 
     <properties>
+        <revision>1.0.0-SNAPSHOT</revision>
         <java.version>21</java.version>
         <jib-maven-plugin.version>3.4.6</jib-maven-plugin.version>
+        <google-cloud-firestore.version>3.49.0</google-cloud-firestore.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -52,6 +50,15 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-firestore</artifactId>
+            <version>${google-cloud-firestore.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
@@ -66,8 +73,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>gcloud</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

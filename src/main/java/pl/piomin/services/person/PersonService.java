@@ -1,15 +1,16 @@
 package pl.piomin.services.person;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import pl.piomin.services.person.api.PersonRequest;
 import pl.piomin.services.person.api.PersonResponse;
 
 @Service
-@Transactional(readOnly = true)
 public class PersonService {
 
     private final PersonRepository repository;
@@ -19,66 +20,66 @@ public class PersonService {
     }
 
     public List<PersonResponse> findAll() {
-        return repository.findAllByOrderByLastNameAscFirstNameAsc().stream()
+        return repository.findAllOrderByLastNameAndFirstName().stream()
                 .map(this::toResponse)
                 .toList();
     }
 
-    public PersonResponse findById(Long id) {
+    public PersonResponse findById(String id) {
         return repository.findById(id)
                 .map(this::toResponse)
                 .orElseThrow(() -> new PersonNotFoundException(id));
     }
 
-    @Transactional
     public PersonResponse create(PersonRequest request) {
-        if (repository.existsByEmailIgnoreCase(request.email())) {
-            throw new DuplicateEmailException(request.email());
-        }
-
-        Person person = new Person();
-        apply(person, request);
-        return toResponse(repository.save(person));
+        Instant now = now();
+        return toResponse(repository.save(toPerson(UUID.randomUUID().toString(), request, now, now)));
     }
 
-    @Transactional
-    public PersonResponse update(Long id, PersonRequest request) {
-        Person person = repository.findById(id)
+    public PersonResponse update(String id, PersonRequest request) {
+        Person existing = repository.findById(id)
                 .orElseThrow(() -> new PersonNotFoundException(id));
-
-        if (repository.existsByEmailIgnoreCaseAndIdNot(request.email(), id)) {
-            throw new DuplicateEmailException(request.email());
-        }
-
-        apply(person, request);
-        return toResponse(repository.save(person));
+        return toResponse(repository.save(toPerson(id, request, existing.createdAt(), now())));
     }
 
-    @Transactional
-    public void delete(Long id) {
-        if (!repository.existsById(id)) {
+    public void delete(String id) {
+        if (repository.findById(id).isEmpty()) {
             throw new PersonNotFoundException(id);
         }
         repository.deleteById(id);
     }
 
-    private void apply(Person person, PersonRequest request) {
-        person.setFirstName(request.firstName().trim());
-        person.setLastName(request.lastName().trim());
-        person.setEmail(request.email().trim().toLowerCase());
-        person.setDateOfBirth(request.dateOfBirth());
-        person.setPhoneNumber(request.phoneNumber().trim());
+    // Firestore has no unique constraints, so the email check is not atomic with the write
+    private Person toPerson(String id, PersonRequest request, Instant createdAt, Instant updatedAt) {
+        String email = request.email().trim().toLowerCase();
+        if (repository.existsByEmailAndIdNot(email, id)) {
+            throw new DuplicateEmailException(email);
+        }
+        return new Person(
+                id,
+                request.firstName().trim(),
+                request.lastName().trim(),
+                email,
+                request.dateOfBirth(),
+                request.phoneNumber().trim(),
+                createdAt,
+                updatedAt);
+    }
+
+    // Firestore stores timestamps with microsecond precision
+    private static Instant now() {
+        return Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     private PersonResponse toResponse(Person person) {
         return new PersonResponse(
-                person.getId(),
-                person.getFirstName(),
-                person.getLastName(),
-                person.getEmail(),
-                person.getDateOfBirth(),
-                person.getPhoneNumber(),
-                person.getCreatedAt(),
-                person.getUpdatedAt());
+                person.id(),
+                person.firstName(),
+                person.lastName(),
+                person.email(),
+                person.dateOfBirth(),
+                person.phoneNumber(),
+                person.createdAt(),
+                person.updatedAt());
     }
 }

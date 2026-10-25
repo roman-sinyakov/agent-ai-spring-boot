@@ -4,6 +4,25 @@ executors:
   maven:
     docker:
       - image: maven:3.9.11-eclipse-temurin-21
+    environment: &maven-environment
+      # MAJOR.MINOR is set here, PATCH is the CircleCI pipeline number
+      REVISION: 1.0.<< pipeline.number >>
+  maven-with-databases:
+    docker:
+      - image: maven:3.9.11-eclipse-temurin-21
+      - image: gcr.io/google.com/cloudsdktool/google-cloud-cli:590.0.1-emulators
+        command: gcloud emulators firestore start --host-port=0.0.0.0:8081
+      - image: postgres:18
+        environment:
+          POSTGRES_DB: persondb
+          POSTGRES_USER: person
+          POSTGRES_PASSWORD: person
+    environment:
+      <<: *maven-environment
+      FIRESTORE_EMULATOR_HOST: localhost:8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/persondb
+      SPRING_DATASOURCE_USERNAME: person
+      SPRING_DATASOURCE_PASSWORD: person
 
 commands:
   with-maven-cache:
@@ -24,13 +43,19 @@ commands:
 
 jobs:
   build:
-    executor: maven
+    executor: maven-with-databases
     steps:
       - with-maven-cache:
           steps:
             - run:
+                name: Wait for Firestore emulator and PostgreSQL
+                command: |
+                  for port in 8081 5432; do
+                    timeout 180 bash -c "until echo > /dev/tcp/localhost/${port}; do sleep 2; done" 2>/dev/null
+                  done
+            - run:
                 name: Verify
-                command: mvn -B clean verify
+                command: mvn -B -Drevision=${REVISION} clean verify
 
   publish-image:
     executor: maven
@@ -41,9 +66,9 @@ jobs:
                 name: Build and push image to ghcr.io
                 command: |
                   IMAGE=ghcr.io/${CIRCLE_PROJECT_USERNAME,,}/${CIRCLE_PROJECT_REPONAME}
-                  mvn -B -DskipTests compile jib:build \
+                  mvn -B -Drevision=${REVISION} -DskipTests compile jib:build \
                     -Djib.to.image=${IMAGE}:${CIRCLE_SHA1} \
-                    -Djib.to.tags=latest \
+                    -Djib.to.tags=latest,${REVISION} \
                     -Djib.to.auth.username=${CIRCLE_PROJECT_USERNAME} \
                     -Djib.to.auth.password=${GHCR_TOKEN}
 

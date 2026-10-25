@@ -9,3 +9,90 @@ grant_type=client_credentials&scope=person.read%20person.write
     client.test("Token issued", () => client.assert(response.status === 200, "Status: " + response.status));
     client.global.set("token", response.body.access_token);
 %}
+
+### Get public keys for JWT signature verification (JWKS)
+GET {{host}}/oauth2/jwks
+
+> {% client.test("JWKS returned", () => client.assert(response.status === 200 && response.body.keys.length > 0, "Status: " + response.status)); %}
+
+### List persons (public, no token)
+GET {{host}}/api/v1/persons
+
+> {% client.test("List returned", () => client.assert(response.status === 200, "Status: " + response.status)); %}
+
+### Create person
+POST {{host}}/api/v1/persons
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "email": "jane.{{$timestamp}}@example.com",
+  "dateOfBirth": "1990-05-20",
+  "phoneNumber": "+48123456789"
+}
+
+> {%
+    client.test("Person created", () => client.assert(response.status === 201, "Status: " + response.status));
+    client.global.set("personId", response.body.id);
+%}
+
+### Get person by id
+GET {{host}}/api/v1/persons/{{personId}}
+Authorization: Bearer {{token}}
+
+> {% client.test("Person found", () => client.assert(response.status === 200, "Status: " + response.status)); %}
+
+### Update person
+PUT {{host}}/api/v1/persons/{{personId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "email": "jane.smith.{{$timestamp}}@example.com",
+  "dateOfBirth": "1990-05-20",
+  "phoneNumber": "+48123456789"
+}
+
+> {% client.test("Person updated", () => client.assert(response.status === 200, "Status: " + response.status)); %}
+
+### Create person with invalid payload (expect 400)
+POST {{host}}/api/v1/persons
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "",
+  "lastName": "Doe",
+  "email": "not-an-email",
+  "dateOfBirth": "2090-05-20",
+  "phoneNumber": "abc"
+}
+
+> {% client.test("Validation failed", () => client.assert(response.status === 400, "Status: " + response.status)); %}
+
+### Get person by id without token (expect 401)
+GET {{host}}/api/v1/persons/{{personId}}
+
+> {% client.test("Unauthorized", () => client.assert(response.status === 401, "Status: " + response.status)); %}
+
+### Delete person
+DELETE {{host}}/api/v1/persons/{{personId}}
+Authorization: Bearer {{token}}
+
+> {% client.test("Person deleted", () => client.assert(response.status === 204, "Status: " + response.status)); %}
+
+### Get deleted person (expect 404)
+GET {{host}}/api/v1/persons/{{personId}}
+Authorization: Bearer {{token}}
+
+> {% client.test("Person not found", () => client.assert(response.status === 404, "Status: " + response.status)); %}
+
+### Health (readiness)
+GET {{host}}/actuator/health/readiness
+
+### OAuth2 authorization server metadata
+GET {{host}}/.well-known/oauth-authorization-server

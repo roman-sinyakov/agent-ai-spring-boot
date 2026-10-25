@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 public record PersonResponse(
-        Long id,
+        String id,
         String firstName,
         String lastName,
         String email,

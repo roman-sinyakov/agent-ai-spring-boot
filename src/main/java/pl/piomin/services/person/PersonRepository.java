@@ -1,14 +1,18 @@
 package pl.piomin.services.person;
 
 import java.util.List;
+import java.util.Optional;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+// Firestore is used by default, PostgreSQL with the "postgres" profile
+public interface PersonRepository {
 
-public interface PersonRepository extends JpaRepository<Person, Long> {
+    List<Person> findAllOrderByLastNameAndFirstName();
 
-    boolean existsByEmailIgnoreCase(String email);
+    Optional<Person> findById(String id);
 
-    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
+    boolean existsByEmailAndIdNot(String email, String id);
 
-    List<Person> findAllByOrderByLastNameAscFirstNameAsc();
+    Person save(Person person);
+
+    void deleteById(String id);
 }

@@ -1,7 +1,16 @@
 services:
+  firestore:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:590.0.1-emulators
+    container_name: person-firestore
+    command: gcloud emulators firestore start --host-port=0.0.0.0:8081
+    ports:
+      - "8081:8081"
+
+  # Started only with: docker compose --profile postgres up
   postgres:
     image: postgres:18
     container_name: person-postgres
+    profiles: ["postgres"]
     environment:
       POSTGRES_DB: persondb
       POSTGRES_USER: person
@@ -14,15 +23,22 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
 
   app:
     build:
       context: .
     depends_on:
+      firestore:
+        condition: service_started
       postgres:
         condition: service_healthy
+        required: false
     environment:
+      # Set SPRING_PROFILES_ACTIVE=postgres to use PostgreSQL instead of Firestore
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+      GOOGLE_CLOUD_PROJECT: agent-ai-spring-boot
+      FIRESTORE_EMULATOR_HOST: firestore:8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/persondb
       SPRING_DATASOURCE_USERNAME: person
       SPRING_DATASOURCE_PASSWORD: person

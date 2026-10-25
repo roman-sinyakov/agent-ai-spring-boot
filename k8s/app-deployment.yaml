@@ -21,6 +21,20 @@ spec:
           envFrom:
             - secretRef:
                 name: person-api-secret
+          # Firestore project and service account key, created manually (see README); not needed with PostgreSQL
+          env:
+            - name: GOOGLE_CLOUD_PROJECT
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-credentials
+                  key: project-id
+                  optional: true
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /etc/firebase/firebase-key.json
+          volumeMounts:
+            - name: firebase-credentials
+              mountPath: /etc/firebase
+              readOnly: true
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
@@ -33,3 +47,8 @@ spec:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 15
+      volumes:
+        - name: firebase-credentials
+          secret:
+            secretName: firebase-credentials
+            optional: true

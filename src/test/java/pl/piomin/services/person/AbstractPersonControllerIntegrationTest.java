@@ -1,12 +1,15 @@
 package pl.piomin.services.person;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +24,17 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class PersonControllerIntegrationTest {
+abstract class AbstractPersonControllerIntegrationTest {
+
+    private static final String JANE = """
+            {
+              "firstName": "Jane",
+              "lastName": "Doe",
+              "email": "jane.doe@example.com",
+              "dateOfBirth": "1990-05-20",
+              "phoneNumber": "+48123456789"
+            }
+            """;
 
     @Autowired
     private MockMvc mockMvc;
@@ -30,38 +43,27 @@ class PersonControllerIntegrationTest {
     private PersonRepository repository;
 
     @BeforeEach
-    void setUp() {
-        repository.deleteAll();
+    void setUp() throws Exception {
+        deleteAllPersons();
     }
+
+    abstract void deleteAllPersons() throws Exception;
 
     @Test
     void shouldCreatePersonWhenWriteScopeIsPresent() throws Exception {
         mockMvc.perform(post("/api/v1/persons")
                         .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.write")))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "firstName": "Jane",
-                                  "lastName": "Doe",
-                                  "email": "jane.doe@example.com",
-                                  "dateOfBirth": "1990-05-20",
-                                  "phoneNumber": "+48123456789"
-                                }
-                                """))
+                        .content(JANE))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.id").isString())
                 .andExpect(jsonPath("$.email").value("jane.doe@example.com"));
     }
 
     @Test
     void shouldReturnPersonsWhenReadScopeIsPresent() throws Exception {
-        Person person = new Person();
-        person.setFirstName("John");
-        person.setLastName("Smith");
-        person.setEmail("john.smith@example.com");
-        person.setDateOfBirth(LocalDate.of(1988, 1, 2));
-        person.setPhoneNumber("+48111999888");
-        repository.save(person);
+        repository.save(new Person(UUID.randomUUID().toString(), "John", "Smith", "john.smith@example.com",
+                LocalDate.of(1988, 1, 2), "+48111999888", Instant.now(), Instant.now()));
 
         mockMvc.perform(get("/api/v1/persons")
                         .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.read"))))
@@ -91,6 +93,18 @@ class PersonControllerIntegrationTest {
     }
 
     @Test
+    void shouldExposeHealthWithoutToken() throws Exception {
+        mockMvc.perform(get("/actuator/health/liveness"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedActuatorInfo() throws Exception {
+        mockMvc.perform(get("/actuator/info"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void shouldReturnBadRequestForInvalidPayload() throws Exception {
         mockMvc.perform(post("/api/v1/persons")
                         .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.write")))
@@ -110,10 +124,52 @@ class PersonControllerIntegrationTest {
     }
 
     @Test
+    void shouldReturnBadRequestWhenDateOfBirthIsMissing() throws Exception {
+        mockMvc.perform(post("/api/v1/persons")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.write")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName": "Jane",
+                                  "lastName": "Doe",
+                                  "email": "jane.doe@example.com",
+                                  "phoneNumber": "+48123456789"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.dateOfBirth").exists());
+    }
+
+    @Test
     void shouldReturnNotFoundForMissingPerson() throws Exception {
         mockMvc.perform(get("/api/v1/persons/999")
                         .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.read"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Person with id '999' was not found"));
+    }
+
+    @Test
+    void shouldReturnConflictForDuplicateEmail() throws Exception {
+        repository.save(new Person(UUID.randomUUID().toString(), "Jane", "Doe", "jane.doe@example.com",
+                LocalDate.of(1990, 5, 20), "+48123456789", Instant.now(), Instant.now()));
+
+        mockMvc.perform(post("/api/v1/persons")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.write")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(JANE))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void shouldDeleteExistingPerson() throws Exception {
+        Person saved = repository.save(new Person(UUID.randomUUID().toString(), "Jane", "Doe", "jane.doe@example.com",
+                LocalDate.of(1990, 5, 20), "+48123456789", Instant.now(), Instant.now()));
+
+        mockMvc.perform(delete("/api/v1/persons/" + saved.id())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.write"))))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/v1/persons/" + saved.id())
+                        .with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_person.read"))))
+                .andExpect(status().isNotFound());
     }
 }
